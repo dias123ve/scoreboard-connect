@@ -1,0 +1,5 @@
+{
+  "installCommand": "npm install && npm install @supabase/supabase-js",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist"
+}
