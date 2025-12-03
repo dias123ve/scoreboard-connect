@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BookOpen, ArrowLeft, GraduationCap, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+console.log("VITE_SUPABASE_URL =", import.meta.env.VITE_SUPABASE_URL);
+console.log("VITE_SUPABASE_ANON_KEY =", import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 const Signup = () => {
   const navigate = useNavigate();
