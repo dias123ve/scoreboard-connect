@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookOpen, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,27 +17,43 @@ const Login = () => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-
-    // For now, just show message (backend will be connected later)
+  if (!formData.email || !formData.password) {
     toast({
-      title: "Login",
-      description: "Please connect Supabase to enable authentication.",
+      title: "Error",
+      description: "Please fill in all fields",
+      variant: "destructive",
     });
-    
     setLoading(false);
-  };
+    return;
+  }
+
+  // --- Supabase real login ---
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: formData.email,
+    password: formData.password,
+  });
+
+  if (error) {
+    toast({
+      title: "Login Failed",
+      description: error.message,
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  toast({
+    title: "Success",
+    description: "Logged in successfully!",
+  });
+
+  navigate("/student-dashboard"); // atau TeacherDashboard sesuai rute kamu
+  setLoading(false);
+};
 
   return (
     <div className="min-h-screen gradient-hero">
