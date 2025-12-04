@@ -6,9 +6,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BookOpen, ArrowLeft, GraduationCap, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/lib/supabase";
-console.log("VITE_SUPABASE_URL =", import.meta.env.VITE_SUPABASE_URL);
-console.log("VITE_SUPABASE_ANON_KEY =", import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -23,67 +20,38 @@ const Signup = () => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  // Validation
-  if (!formData.fullName || !formData.email || !formData.password) {
-    toast({
-      title: "Error",
-      description: "Please fill in all required fields",
-      variant: "destructive",
-    });
-    setLoading(false);
-    return;
-  }
-
-  if (formData.role === "teacher" && !formData.subject) {
-    toast({
-      title: "Error",
-      description: "Please enter your subject",
-      variant: "destructive",
-    });
-    setLoading(false);
-    return;
-  }
-
-  // --- REAL SUPABASE SIGNUP ---
-  const { data, error } = await supabase.auth.signUp({
-    email: formData.email,
-    password: formData.password,
-    options: {
-      data: {
-        fullName: formData.fullName,
-        role: formData.role,
-        subject: formData.subject || null
-      }
+    // Validation
+    if (!formData.fullName || !formData.email || !formData.password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
     }
-  });
 
-  if (error) {
+    if (formData.role === "teacher" && !formData.subject) {
+      toast({
+        title: "Error",
+        description: "Please enter your subject",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
+    // For now, just show success (backend will be connected later)
     toast({
-      title: "Signup Failed",
-      description: error.message,
-      variant: "destructive",
+      title: "Account Created!",
+      description: "Please connect Supabase to enable authentication.",
     });
+    
     setLoading(false);
-    return;
-  }
-
-  toast({
-    title: "Account Created!",
-    description: "Welcome to ScoreTrack",
-  });
-
-  // Redirect based on role
-  if (formData.role === "student") {
-    navigate("/student-dashboard");
-  } else {
-    navigate("/teacher-dashboard");
-  }
-
-  setLoading(false);
-};
+  };
 
   return (
     <div className="min-h-screen gradient-hero">
