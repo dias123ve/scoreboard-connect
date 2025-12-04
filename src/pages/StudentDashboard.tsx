@@ -201,7 +201,7 @@ const StudentDashboard: React.FC = () => {
         .select("id, full_name, subject, teacher_code")
         .ilike("teacher_code", teacherCode.trim())
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (teacherError) throw teacherError;
 
