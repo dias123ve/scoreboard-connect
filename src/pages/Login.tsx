@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookOpen, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/supabaseClient";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,27 +17,77 @@ const Login = () => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    if (!formData.email || !formData.password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-
-    // For now, just show message (backend will be connected later)
+  if (!formData.email || !formData.password) {
     toast({
-      title: "Login",
-      description: "Please connect Supabase to enable authentication.",
+      title: "Error",
+      description: "Please fill in all fields",
+      variant: "destructive",
     });
-    
     setLoading(false);
-  };
+    return;
+  }
+
+  // 1️⃣ LOGIN
+  const { data: loginData, error } = await supabase.auth.signInWithPassword({
+    email: formData.email,
+    password: formData.password,
+  });
+
+  if (error) {
+    toast({
+      title: "Login failed",
+      description: error.message,
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  const user = loginData.user;
+  if (!user) {
+    toast({
+      title: "Error",
+      description: "Login succeeded but user not found.",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  // 2️⃣ CEK ROLE USER DI TABEL PROFILES
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile) {
+    toast({
+      title: "Error",
+      description: "Failed to load user profile.",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  toast({
+    title: "Login successful",
+    description: `Welcome back, ${profile.full_name}!`,
+  });
+
+  // 3️⃣ REDIRECT SESUAI ROLE
+  if (profile.role === "teacher") {
+    navigate("/teacher");
+  } else {
+    navigate("/student");
+  }
+
+  setLoading(false);
+};
 
   return (
     <div className="min-h-screen gradient-hero">

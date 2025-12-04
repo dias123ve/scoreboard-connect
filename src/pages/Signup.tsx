@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BookOpen, ArrowLeft, GraduationCap, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/supabaseClient"; // ⬅️ tambahkan ini di atas
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -20,38 +21,94 @@ const Signup = () => {
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    // Validation
-    if (!formData.fullName || !formData.email || !formData.password) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-
-    if (formData.role === "teacher" && !formData.subject) {
-      toast({
-        title: "Error",
-        description: "Please enter your subject",
-        variant: "destructive",
-      });
-      setLoading(false);
-      return;
-    }
-
-    // For now, just show success (backend will be connected later)
+  // Validation
+  if (!formData.fullName || !formData.email || !formData.password) {
     toast({
-      title: "Account Created!",
-      description: "Please connect Supabase to enable authentication.",
+      title: "Error",
+      description: "Please fill in all required fields",
+      variant: "destructive",
     });
-    
     setLoading(false);
-  };
+    return;
+  }
+
+  if (formData.role === "teacher" && !formData.subject) {
+    toast({
+      title: "Error",
+      description: "Please enter your subject",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  // 1️⃣ REGISTER USER DI SUPABASE AUTH
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: formData.email,
+    password: formData.password,
+  });
+
+  if (authError) {
+    toast({
+      title: "Signup failed",
+      description: authError.message,
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  const userId = authData.user?.id;
+  if (!userId) {
+    toast({
+      title: "Error",
+      description: "User ID not found after signup.",
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  // 2️⃣ GENERATE TEACHER CODE (HANYA UNTUK TEACHER)
+  let teacherCode: string | null = null;
+
+  if (formData.role === "teacher") {
+    const random = Math.floor(1000 + Math.random() * 9000);
+    teacherCode = `${formData.subject.substring(0, 4).toUpperCase()}-${random}`;
+  }
+
+  // 3️⃣ SIMPAN DATA USER DI TABEL PROFILES
+  const { error: profileError } = await supabase.from("profiles").insert({
+    id: userId,
+    full_name: formData.fullName,
+    role: formData.role,
+    subject: formData.role === "teacher" ? formData.subject : null,
+    teacher_code: teacherCode,
+  });
+
+  if (profileError) {
+    toast({
+      title: "Error saving profile",
+      description: profileError.message,
+      variant: "destructive",
+    });
+    setLoading(false);
+    return;
+  }
+
+  // DONE 🎉
+  toast({
+    title: "Account created!",
+    description: "You can now log in.",
+  });
+
+  navigate("/login");
+  setLoading(false);
+};
+
 
   return (
     <div className="min-h-screen gradient-hero">
