@@ -80,14 +80,26 @@ const Signup = () => {
     teacherCode = `${formData.subject.substring(0, 4).toUpperCase()}-${random}`;
   }
 
-  // 3️⃣ SIMPAN DATA USER DI TABEL PROFILES
-  const { error: profileError } = await supabase.from("profiles").insert({
-    id: userId,
+ // 3️⃣ UPDATE PROFILE (bukan insert)
+const { error: updateError } = await supabase
+  .from("profiles")
+  .update({
     full_name: formData.fullName,
     role: formData.role,
     subject: formData.role === "teacher" ? formData.subject : null,
     teacher_code: teacherCode,
+  })
+  .eq("id", userId);
+
+if (updateError) {
+  toast({
+    title: "Error saving profile",
+    description: updateError.message,
+    variant: "destructive",
   });
+  setLoading(false);
+  return;
+}
 
   if (profileError) {
     toast({
