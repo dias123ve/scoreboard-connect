@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { BookOpen, ArrowLeft, GraduationCap, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/supabaseClient"; // ⬅️ tambahkan ini di atas
+import { supabase } from "../lib/supabaseClient";
 
 const Signup = () => {
   const navigate = useNavigate();
