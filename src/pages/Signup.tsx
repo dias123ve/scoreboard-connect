@@ -20,7 +20,7 @@ const Signup = () => {
     subject: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   setLoading(true);
 
@@ -45,7 +45,7 @@ const Signup = () => {
     return;
   }
 
-  // 1️⃣ REGISTER USER DI SUPABASE AUTH
+  // 1️⃣ REGISTER USER
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email: formData.email,
     password: formData.password,
@@ -72,7 +72,7 @@ const Signup = () => {
     return;
   }
 
-  // 2️⃣ GENERATE TEACHER CODE (HANYA UNTUK TEACHER)
+  // 2️⃣ GENERATE TEACHER CODE
   let teacherCode: string | null = null;
 
   if (formData.role === "teacher") {
@@ -80,31 +80,21 @@ const Signup = () => {
     teacherCode = `${formData.subject.substring(0, 4).toUpperCase()}-${random}`;
   }
 
- // 3️⃣ UPDATE PROFILE (bukan insert)
-const { error: updateError } = await supabase
-  .from("profiles")
-  .update({
-    full_name: formData.fullName,
-    role: formData.role,
-    subject: formData.role === "teacher" ? formData.subject : null,
-    teacher_code: teacherCode,
-  })
-  .eq("id", userId);
+  // 3️⃣ UPDATE PROFILE (Trigger sudah membuat row)
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({
+      full_name: formData.fullName,
+      role: formData.role,
+      subject: formData.role === "teacher" ? formData.subject : null,
+      teacher_code: teacherCode,
+    })
+    .eq("id", userId);
 
-if (updateError) {
-  toast({
-    title: "Error saving profile",
-    description: updateError.message,
-    variant: "destructive",
-  });
-  setLoading(false);
-  return;
-}
-
-  if (profileError) {
+  if (updateError) {
     toast({
       title: "Error saving profile",
-      description: profileError.message,
+      description: updateError.message,
       variant: "destructive",
     });
     setLoading(false);
@@ -120,6 +110,7 @@ if (updateError) {
   navigate("/login");
   setLoading(false);
 };
+
 
 
   return (
