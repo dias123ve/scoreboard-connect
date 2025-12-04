@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BookOpen, LogOut, Link2, Plus, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 
 type ScoreItem = { id: string; score: number; recorded_at: string };
 type ConnectedSubject = {
