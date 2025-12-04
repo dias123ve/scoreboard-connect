@@ -174,94 +174,72 @@ const StudentDashboard: React.FC = () => {
   // -----------------------------
   // CONNECT TO TEACHER
   // -----------------------------
-  const handleConnect = async () => {
-    if (!teacherCode.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a teacher code",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!userId) {
-      toast({
-        title: "Error",
-        description: "User not authenticated",
-        variant: "destructive",
-      });
-      return;
-    }
+  try {
+  const { data: teachers, error: teacherError } = await supabase
+    .from("profiles")
+    .select("id, full_name, subject, teacher_code")
+    .ilike("teacher_code", teacherCode.trim());
 
-    setConnecting(true);
+  if (teacherError) throw teacherError;
 
-    try {
-      // Cari guru berdasarkan teacher_code
-      const { data: teacher, error: teacherError } = await supabase
-        .from("profiles")
-        .select("id, full_name, subject, teacher_code")
-        .ilike("teacher_code", teacherCode.trim())
-        .limit(1)
-        .maybeSingle();
+  const teacher = teachers?.[0] ?? null;
 
-      if (teacherError) throw teacherError;
+  if (!teacher) {
+    toast({
+      title: "Not found",
+      description: "Teacher code not found",
+      variant: "destructive",
+    });
+    setConnecting(false);
+    return;
+  }
 
-      if (!teacher) {
-        toast({
-          title: "Not found",
-          description: "Teacher code not found",
-          variant: "destructive",
-        });
-        setConnecting(false);
-        return;
-      }
+  // Cek apakah sudah konek sebelumnya
+  const { data: existing } = await supabase
+    .from("student_teacher")
+    .select("id")
+    .eq("student_id", userId)
+    .eq("teacher_id", teacher.id)
+    .maybeSingle();
 
-      // Cek apakah sudah konek sebelumnya
-      const { data: existing } = await supabase
-        .from("student_teacher")
-        .select("id")
-        .eq("student_id", userId)
-        .eq("teacher_id", teacher.id)
-        .maybeSingle();
+  if (existing) {
+    toast({
+      title: "Already connected",
+      description: "You're already connected to this teacher.",
+      variant: "destructive",
+    });
+    setTeacherCode("");
+    setConnecting(false);
+    return;
+  }
 
-      if (existing) {
-        toast({
-          title: "Already connected",
-          description: "You're already connected to this teacher.",
-          variant: "destructive",
-        });
-        setTeacherCode("");
-        setConnecting(false);
-        return;
-      }
+  const { error: insertErr } = await supabase
+    .from("student_teacher")
+    .insert({
+      student_id: userId,
+      teacher_id: teacher.id,
+    });
 
-      // Tambahkan koneksi baru
-      const { error: insertErr } = await supabase
-        .from("student_teacher")
-        .insert({
-          student_id: userId,
-          teacher_id: teacher.id,
-        });
+  if (insertErr) throw insertErr;
 
-      if (insertErr) throw insertErr;
+  toast({
+    title: "Connected!",
+    description: `Connected to ${teacher.full_name}.`,
+  });
 
-      toast({
-        title: "Connected!",
-        description: `Connected to ${teacher.full_name}.`,
-      });
+  setTeacherCode("");
+  await loadConnections();
+} catch (err: any) {
+  console.error(err);
+  toast({
+    title: "Error connecting",
+    description: err?.message ?? "Failed to connect",
+    variant: "destructive",
+  });
+} finally {
+  setConnecting(false);
+};
 
-      setTeacherCode("");
-      await loadConnections();
-    } catch (err: any) {
-      console.error(err);
-      toast({
-        title: "Error connecting",
-        description: err?.message ?? "Failed to connect",
-        variant: "destructive",
-      });
-    } finally {
-      setConnecting(false);
-    }
-  };
 
   // -----------------------------
   // UI
