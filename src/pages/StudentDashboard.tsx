@@ -159,12 +159,12 @@ const StudentDashboard: React.FC = () => {
       }
 
       // check existing
-      const { data: existing, error: existingErr } = await supabase
-        .from("student_teacher_connections")
-        .select("id")
-        .eq("student_id", userId)
-        .eq("teacher_id", teacher.id)
-        .single();
+      const { data: existing } = await supabase
+  .from("student_teacher_connections")
+  .select("id")
+  .eq("student_id", userId)
+  .eq("teacher_id", teacher.id)
+  .maybeSingle(); // ✅ aman
 
       if (!existingErr && existing) {
         toast({ title: "Already connected", description: "You're already connected to this teacher.", variant: "destructive" });
