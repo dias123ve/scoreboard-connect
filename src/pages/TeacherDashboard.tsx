@@ -1,27 +1,89 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Download, Upload, LogOut, Copy, CheckCircle, FileSpreadsheet, Users } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  BookOpen,
+  Download,
+  Upload,
+  LogOut,
+  Copy,
+  CheckCircle,
+  FileSpreadsheet,
+  Users,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
-
-// Mock data for demo purposes
-const mockTeacher = {
-  name: "John Smith",
-  email: "john.smith@school.edu",
-  subject: "Mathematics",
-  teacherCode: "MATH-4821",
-};
 
 const TeacherDashboard = () => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [copied, setCopied] = useState(false);
-  const [uploadedCount, setUploadedCount] = useState(0);
 
+  const [teacher, setTeacher] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+
+  const [connectedStudents, setConnectedStudents] = useState(0);
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const [totalScores, setTotalScores] = useState(0);
+
+  // 🔥 Load teacher profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.user.id)
+        .single();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      setTeacher(data);
+    };
+
+    loadProfile();
+  }, []);
+
+  // 🔥 Load statistics
+  useEffect(() => {
+    if (!teacher) return;
+    loadConnections();
+    loadStats();
+  }, [teacher]);
+
+  const loadConnections = async () => {
+    const { data, error } = await supabase
+      .from("student_teacher")
+      .select("id")
+      .eq("teacher_id", teacher.id);
+
+    if (!error && data) setConnectedStudents(data.length);
+  };
+
+  const loadStats = async () => {
+    const { data, error } = await supabase
+      .from("scores")
+      .select("id")
+      .eq("teacher_id", teacher.id);
+
+    if (!error && data) setTotalScores(data.length);
+  };
+
+  // Copy teacher code
   const copyTeacherCode = () => {
-    navigator.clipboard.writeText(mockTeacher.teacherCode);
+    navigator.clipboard.writeText(teacher.teacher_code);
     setCopied(true);
     toast({
       title: "Copied!",
@@ -30,138 +92,116 @@ const TeacherDashboard = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Download Excel Template
   const downloadTemplate = () => {
-    // Create workbook with template
-    const ws = XLSX.utils.aoa_to_sheet([
-      ["Student Email", "Score"],
-      ["student1@email.com", "85"],
-      ["student2@email.com", "92"],
-      ["student3@email.com", "78"],
-    ]);
-
-    // Set column widths
+    const ws = XLSX.utils.aoa_to_sheet([["Student Email", "Score"]]);
     ws["!cols"] = [{ wch: 25 }, { wch: 10 }];
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Scores");
-
-    // Download
     XLSX.writeFile(wb, "score_template.xlsx");
 
     toast({
-      title: "Template Downloaded",
-      description: "Fill in student emails and scores, then upload.",
+      title: "Template downloaded",
+      description: "Fill student email + score then upload.",
     });
   };
 
+  // Upload Excel → Insert into Supabase
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json<{ "Student Email": string; Score: number }>(worksheet);
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet);
 
-      // Validate data
-      const validEntries = jsonData.filter(
-        (row) => row["Student Email"] && typeof row["Score"] === "number"
-      );
+      const clean = json.filter((x: any) => x["Student Email"] && x["Score"]);
 
-      if (validEntries.length === 0) {
+      if (clean.length === 0) {
         toast({
           title: "Error",
-          description: "No valid data found in the file. Please check the format.",
+          description: "File has no valid rows.",
           variant: "destructive",
         });
         return;
       }
 
-      // In production, this would upload to Supabase
-      setUploadedCount(validEntries.length);
-      
+      // Insert scores
+      const payload = clean.map((row: any) => ({
+        teacher_id: teacher.id,
+        student_email: row["Student Email"],
+        score: Number(row["Score"]),
+      }));
+
+      const { error } = await supabase.from("scores").insert(payload);
+      if (error) throw error;
+
+      setUploadedCount(clean.length);
+      loadStats();
+
       toast({
-        title: "Scores Uploaded!",
-        description: `${validEntries.length} student scores successfully uploaded.`,
+        title: "Uploaded!",
+        description: `${clean.length} scores saved.`,
       });
-    } catch (error) {
+    } catch (err) {
       toast({
-        title: "Error",
-        description: "Failed to read the Excel file. Please check the format.",
+        title: "Error reading file",
+        description: "Make sure format is correct.",
         variant: "destructive",
       });
     }
 
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  if (!teacher) return <div className="p-10">Loading dashboard...</div>;
 
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-                <BookOpen className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-bold text-foreground">ScoreTrack</span>
-            </Link>
-            <Link to="/">
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </Button>
-            </Link>
-          </div>
+      <nav className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <Link to="/" className="flex items-center gap-2">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
+              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold">ScoreTrack</span>
+          </Link>
+          <Link to="/">
+            <Button variant="ghost">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign Out
+            </Button>
+          </Link>
         </div>
       </nav>
 
-      {/* Main Content */}
+      {/* Main */}
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Teacher Dashboard</h1>
-          <p className="mt-2 text-muted-foreground">Manage your students and scores</p>
-        </div>
+        <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage your students and scores
+        </p>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {/* Teacher Profile Card */}
-          <Card className="shadow-card animate-slide-up">
+        <div className="grid gap-6 mt-8 md:grid-cols-2 lg:grid-cols-3">
+          {/* Profile */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent">
-                  <span className="text-lg font-bold text-accent-foreground">
-                    {mockTeacher.name.charAt(0)}
-                  </span>
-                </div>
-                Profile
-              </CardTitle>
+              <CardTitle>Profile</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
+              <p><strong>Name:</strong> {teacher.full_name}</p>
+              <p><strong>Subject:</strong> {teacher.subject}</p>
+
               <div>
-                <p className="text-sm text-muted-foreground">Name</p>
-                <p className="font-medium text-foreground">{mockTeacher.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Subject</p>
-                <p className="font-medium text-foreground">{mockTeacher.subject}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Teacher Code</p>
-                <div className="mt-1 flex items-center gap-2">
-                  <code className="rounded-lg bg-accent px-3 py-2 text-lg font-bold text-accent-foreground">
-                    {mockTeacher.teacherCode}
+                <p className="text-sm">Teacher Code</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="px-3 py-2 bg-accent rounded-lg">
+                    {teacher.teacher_code}
                   </code>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={copyTeacherCode}
-                    className="shrink-0"
-                  >
+                  <Button size="icon" variant="ghost" onClick={copyTeacherCode}>
                     {copied ? (
                       <CheckCircle className="h-4 w-4 text-green-500" />
                     ) : (
@@ -169,22 +209,16 @@ const TeacherDashboard = () => {
                     )}
                   </Button>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Share this code with your students
-                </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Download Template Card */}
-          <Card className="shadow-card animate-slide-up" style={{ animationDelay: "0.1s" }}>
+          {/* Template */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-primary" />
-                Excel Template
-              </CardTitle>
+              <CardTitle>Excel Template</CardTitle>
               <CardDescription>
-                Download the score template to fill in student data
+                Download and fill in student scores.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,81 +226,55 @@ const TeacherDashboard = () => {
                 <Download className="mr-2 h-4 w-4" />
                 Download Template
               </Button>
-              <div className="mt-4 rounded-lg bg-muted p-4 text-sm">
-                <p className="font-medium text-foreground">Template Format:</p>
-                <ul className="mt-2 list-inside list-disc text-muted-foreground">
-                  <li>Column A: Student Email</li>
-                  <li>Column B: Score</li>
-                </ul>
-              </div>
             </CardContent>
           </Card>
 
-          {/* Upload Scores Card */}
-          <Card className="shadow-card animate-slide-up" style={{ animationDelay: "0.2s" }}>
+          {/* Upload */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Upload className="h-5 w-5 text-primary" />
-                Upload Scores
-              </CardTitle>
-              <CardDescription>
-                Upload filled Excel file to distribute scores
-              </CardDescription>
+              <CardTitle>Upload Scores</CardTitle>
+              <CardDescription>Upload completed Excel</CardDescription>
             </CardHeader>
             <CardContent>
               <input
-                ref={fileInputRef}
                 type="file"
+                ref={fileInputRef}
                 accept=".xlsx,.xls"
-                onChange={handleFileUpload}
                 className="hidden"
-                id="file-upload"
+                onChange={handleFileUpload}
               />
-              <Button
-                variant="hero"
-                className="w-full"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <Button className="w-full" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="mr-2 h-4 w-4" />
-                Upload Excel File
+                Upload Excel
               </Button>
+
               {uploadedCount > 0 && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700">
+                <div className="mt-4 flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">
-                    {uploadedCount} scores uploaded successfully
-                  </span>
+                  {uploadedCount} scores uploaded.
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Stats Card */}
-          <Card className="shadow-card animate-slide-up md:col-span-2 lg:col-span-3" style={{ animationDelay: "0.3s" }}>
+          {/* Stats */}
+          <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Quick Stats
-              </CardTitle>
+              <CardTitle>Quick Stats</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl bg-accent p-6 text-center">
-                  <p className="text-3xl font-bold text-accent-foreground">0</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Connected Students</p>
-                </div>
-                <div className="rounded-xl bg-accent p-6 text-center">
-                  <p className="text-3xl font-bold text-accent-foreground">0</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Scores Uploaded</p>
-                </div>
-                <div className="rounded-xl bg-accent p-6 text-center">
-                  <p className="text-3xl font-bold text-accent-foreground">0</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Upload Sessions</p>
-                </div>
+            <CardContent className="grid sm:grid-cols-3 gap-4">
+              <div className="p-6 bg-accent rounded-xl text-center">
+                <p className="text-3xl font-bold">{connectedStudents}</p>
+                <p className="text-sm">Connected Students</p>
               </div>
-              <p className="mt-4 text-center text-sm text-muted-foreground">
-                Connect Supabase to enable data persistence and real statistics.
-              </p>
+              <div className="p-6 bg-accent rounded-xl text-center">
+                <p className="text-3xl font-bold">{totalScores}</p>
+                <p className="text-sm">Scores Uploaded</p>
+              </div>
+              <div className="p-6 bg-accent rounded-xl text-center">
+                <p className="text-3xl font-bold">{uploadedCount}</p>
+                <p className="text-sm">This Session Upload</p>
+              </div>
             </CardContent>
           </Card>
         </div>
