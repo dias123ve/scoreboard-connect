@@ -1,27 +1,120 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ScoreTrack - Simple Score Management for Education</title>
-    <meta name="description" content="Teachers upload student scores via Excel, students view their progress with beautiful histograms. Simple, secure, and efficient score tracking." />
-    <meta name="author" content="ScoreTrack" />
-    <meta name="keywords" content="LMS, score tracking, education, student scores, teacher dashboard, Excel upload, histogram, grade management" />
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alat Aktivitas</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%2216%22 cy=%2217%22 r=%2213%22 fill=%22%23d9452b%22/%3E%3Cpath d=%22M16 4v6M12 6l4 3 4-3%22 stroke=%22%232e8a57%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linecap=%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@500;600&display=swap">
+<style>
+  /* Token sama dengan fokus-harian/index.html supaya semua alat terasa satu keluarga. */
+  :root {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --fg: #1d2329;
+    --muted: #66717c;
+    --line: #e1e5ea;
+    --accent: #d9452b;
+    --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181c; --surface: #1c2228; --fg: #e7ebef; --muted: #96a1ac; --line: #2c343c; --accent: #f0694f;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181c; --surface: #1c2228; --fg: #e7ebef; --muted: #96a1ac; --line: #2c343c; --accent: #f0694f;
+    color-scheme: dark;
+  }
 
-    <meta property="og:title" content="ScoreTrack - Simple Score Management for Education" />
-    <meta property="og:description" content="Teachers upload student scores via Excel, students view their progress with beautiful histograms. Simple, secure, and efficient score tracking." />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-block: 48px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 28px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.75rem;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  header p { margin: 2px 0 0; color: var(--muted); }
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@ScoreTrack" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-    
-    <link rel="canonical" href="https://scoretrack.app" />
-  </head>
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  a.tool {
+    display: grid;
+    gap: 4px;
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .15s, transform .15s;
+  }
+  a.tool:hover { border-color: var(--accent); transform: translateY(-1px); }
+  a.tool:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tool-name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tool-name::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .tool-desc { color: var(--muted); font-size: 0.92rem; }
 
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+  @media (prefers-reduced-motion: reduce) { a.tool { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Alat Aktivitas</h1>
+    <p>Alat kecil untuk kerja harian. Data tersimpan di browser kamu sendiri.</p>
+  </header>
+
+  <!-- Tambah alat baru: satu <li> per folder alat. -->
+  <ul>
+    <li>
+      <a class="tool" href="fokus-harian/">
+        <span class="tool-name">Fokus Harian</span>
+        <span class="tool-desc">Daftar tugas dengan status, plus timer pomodoro 25/50 menit.</span>
+      </a>
+    </li>
+  </ul>
+</div>
+</body>
 </html>

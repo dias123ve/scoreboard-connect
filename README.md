@@ -1,73 +1,38 @@
-# Welcome to your Lovable project
+# Alat Aktivitas
 
-## Project info
+Kumpulan alat kecil untuk aktivitas harian. Setiap alat adalah satu halaman HTML
+mandiri: tanpa build, tanpa server, tanpa akun. Data disimpan di `localStorage`
+browser pemakai.
 
-**URL**: https://lovable.dev/projects/384fbd4b-e161-4a22-a0ff-ebca5d97c80c
+## Alat
 
-## How can I edit this code?
+| Alat | Folder | Isi |
+|---|---|---|
+| Fokus Harian | `fokus-harian/` | Daftar tugas (kerjakan, tunda, selesai, gagal, hapus) dan timer pomodoro 25/50 menit dengan bunyi saat selesai |
 
-There are several ways of editing your application.
+## Struktur
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/384fbd4b-e161-4a22-a0ff-ebca5d97c80c) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+index.html              halaman depan, daftar semua alat
+fokus-harian/index.html
 ```
 
-**Edit a file directly in GitHub**
+## Menambah alat baru
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+1. Buat folder baru, misalnya `nama-alat/`, berisi satu `index.html`.
+2. Pakai token warna dan font yang sama dengan `fokus-harian/index.html`.
+3. Beri tautan kembali `<a href="../">← Semua alat</a>` di header.
+4. Tambahkan satu `<li>` untuk alat itu di `index.html` root dan satu baris di tabel di atas.
+5. Pakai kunci `localStorage` berawalan nama alat (`nama-alat.…`) supaya data antar-alat tidak bertabrakan.
 
-**Use GitHub Codespaces**
+Semua tautan harus relatif (`fokus-harian/`, `../`), karena situs bisa tersaji di
+subfolder (GitHub Pages: `https://<user>.github.io/<repo>/`).
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Menjalankan
 
-## What technologies are used for this project?
+Buka `index.html` langsung di browser, atau sajikan foldernya dengan server
+statis apa pun:
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/384fbd4b-e161-4a22-a0ff-ebca5d97c80c) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```sh
+python3 -m http.server 8080
+```
