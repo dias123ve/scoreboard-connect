@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>Fokus Harian</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Outfit:wght@500;600&display=swap">
+<style>
+  /* Layout: dua kolom tenang — daftar tugas kiri, timer pomodoro kanan; menumpuk di layar sempit. */
+  :root {
+    --bg: #f3f5f7;
+    --surface: #ffffff;
+    --fg: #1d2329;
+    --muted: #66717c;
+    --line: #e1e5ea;
+    --accent: #d9452b;      /* merah tomat; juga dipakai untuk gagal/hapus */
+    --accent-soft: #fbe7e2;
+    --work: #2f6fb3;        /* status: sedang dikerjakan */
+    --work-soft: #e3edf8;
+    --ok: #2e8a57;          /* selesai */
+    --ok-soft: #e0f2e8;
+    --shadow: 0 8px 24px rgba(20, 30, 40, .12);
+    --font-display: "Outfit", "Segoe UI", system-ui, sans-serif;
+    --font-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14181c; --surface: #1c2228; --fg: #e7ebef; --muted: #96a1ac; --line: #2c343c;
+      --accent: #f0694f; --accent-soft: #3a2420; --work: #6aa6e6; --work-soft: #1f2e3e;
+      --ok: #5cc38a; --ok-soft: #1c3327; --shadow: 0 8px 24px rgba(0, 0, 0, .45);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181c; --surface: #1c2228; --fg: #e7ebef; --muted: #96a1ac; --line: #2c343c;
+    --accent: #f0694f; --accent-soft: #3a2420; --work: #6aa6e6; --work-soft: #1f2e3e;
+    --ok: #5cc38a; --ok-soft: #1c3327; --shadow: 0 8px 24px rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding-block: 40px 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 28px;
+  }
+  header h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.75rem;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  header p { margin: 2px 0 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tally-ok { color: var(--ok); font-weight: 600; }
+  .tally-fail { color: var(--accent); font-weight: 600; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .timer { order: -1; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--fg);
+    padding: 7px 12px;
+    font-weight: 500;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.06); border-color: var(--accent); }
+
+  /* Tugas */
+  .add { display: flex; gap: 8px; margin-bottom: 20px; }
+  .add input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--fg);
+  }
+  .add input::placeholder { color: var(--muted); }
+
+  .group { display: grid; gap: 8px; }
+  .group + .group { margin-top: 20px; }
+  .group-head { display: flex; align-items: baseline; gap: 8px; }
+  .count { color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  li {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 8px 8px 12px;
+    border-radius: 10px;
+    background: var(--bg);
+    animation: in .2s ease-out;
+  }
+  li.working { background: var(--work-soft); }
+  li.leaving { animation: out .3s ease-in forwards; pointer-events: none; }
+  li.leaving.ok { background: var(--ok-soft); }
+  li.leaving.fail { background: var(--accent-soft); }
+  li.leaving.fail .text { text-decoration: line-through; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; border: 2px solid var(--muted); }
+  li.working .dot { border-color: var(--work); background: var(--work); }
+  li.leaving.ok .dot { border-color: var(--ok); background: var(--ok); }
+  li.leaving.fail .dot { border-color: var(--accent); background: var(--accent); }
+  .text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+  .menu-btn { flex: none; padding: 5px 10px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px; }
+  .menu-btn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; transition: transform .15s; }
+  .menu-btn[aria-expanded="true"] { border-color: var(--muted); }
+  .menu-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+  .menu {
+    position: absolute;
+    right: 8px;
+    top: calc(100% - 2px);
+    z-index: 5;
+    min-width: 168px;
+    display: grid;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .menu button {
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    text-align: left;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .menu button:hover, .menu button:focus-visible { background: var(--bg); outline: none; }
+  .menu .sw { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .menu [data-act="toggle"] .sw { background: var(--work); }
+  .menu [data-act="done"] .sw { background: var(--ok); }
+  .menu [data-act="fail"] .sw { background: var(--accent); }
+  .menu [data-act="delete"] { color: var(--muted); }
+  .menu [data-act="delete"] .sw { border: 2px solid var(--muted); }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 6px 2px; margin: 0; }
+  .note { color: var(--muted); font-size: 0.85rem; margin: 16px 0 0; }
+
+  /* Timer */
+  .timer { display: grid; justify-items: center; gap: 18px; text-align: center; }
+  .seg {
+    display: inline-flex;
+    padding: 3px;
+    background: var(--bg);
+    border-radius: 10px;
+    gap: 2px;
+  }
+  .seg button { border: 0; background: transparent; padding: 6px 16px; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+  .dial { position: relative; width: 210px; max-width: 100%; aspect-ratio: 1; }
+  .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .dial circle { fill: none; stroke-width: 8; }
+  .track { stroke: var(--line); }
+  .bar { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .3s linear; }
+  .readout {
+    position: absolute; inset: 0;
+    display: grid; place-content: center; gap: 2px;
+  }
+  .time {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 3rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .state { color: var(--muted); font-size: 0.85rem; }
+  .timer.done .state { color: var(--accent); font-weight: 600; }
+  .controls { display: flex; gap: 8px; }
+  .controls button { min-width: 92px; padding: 9px 14px; }
+
+  @keyframes in { from { opacity: 0; transform: translateY(-4px); } }
+  @keyframes out { 60% { opacity: 1; } to { opacity: 0; transform: translateX(12px); } }
+  @media (prefers-reduced-motion: reduce) {
+    li, li.leaving { animation: none; }
+    .bar, .menu-btn svg { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Fokus Harian</h1>
+    <p><span id="today"></span><span id="tally"></span></p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="tugas-label">
+      <form class="add" id="add-form" autocomplete="off">
+        <label for="task-input" class="label" id="tugas-label" hidden>Tugas baru</label>
+        <input id="task-input" type="text" placeholder="Tambah tugas…" maxlength="140">
+        <button type="submit" class="btn-primary">Tambah</button>
+      </form>
+
+      <div class="group">
+        <div class="group-head"><p class="label">Sedang dikerjakan</p><span class="count" id="count-work"></span></div>
+        <ul id="list-work"></ul>
+      </div>
+      <div class="group">
+        <div class="group-head"><p class="label">Belum dimulai</p><span class="count" id="count-todo"></span></div>
+        <ul id="list-todo"></ul>
+      </div>
+      <p class="note" id="sample-note" hidden>Ini tugas contoh. Buka Aksi lalu pilih Hapus untuk membuangnya.</p>
+    </section>
+
+    <section class="panel timer" id="timer" aria-label="Pomodoro">
+      <p class="label">Pomodoro</p>
+      <div class="seg" role="group" aria-label="Durasi">
+        <button type="button" id="mode-25" data-min="25" aria-pressed="true">25 menit</button>
+        <button type="button" id="mode-50" data-min="50" aria-pressed="false">50 menit</button>
+      </div>
+      <div class="dial">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="track" cx="50" cy="50" r="44"></circle>
+          <circle class="bar" id="bar" cx="50" cy="50" r="44"></circle>
+        </svg>
+        <div class="readout">
+          <div class="time" id="time" role="timer" aria-live="off">25:00</div>
+          <div class="state" id="state">Siap</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button type="button" class="btn-primary" id="btn-start">Mulai</button>
+        <button type="button" id="btn-reset">Reset</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const KEY = "fokus-harian.tasks";
+  const TALLY_KEY = "fokus-harian.tally";
+  const $ = (id) => document.getElementById(id);
+  const todayKey = () => new Date().toLocaleDateString("sv-SE");
+
+  $("today").textContent = new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+
+  /* ---------- Penyimpanan ---------- */
+  const load = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  const store = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+  let tasks = load(KEY), isSample = false;
+  if (!Array.isArray(tasks)) {
+    isSample = true;
+    tasks = [
+      { id: 1, text: "Balas email penting", status: "working" },
+      { id: 2, text: "Susun rencana minggu ini", status: "todo" },
+      { id: 3, text: "Baca satu bab buku", status: "todo" },
+    ];
+  }
+  const save = () => { isSample = false; store(KEY, tasks); };
+
+  let tally = load(TALLY_KEY);
+  if (!tally || tally.date !== todayKey()) tally = { date: todayKey(), done: 0, fail: 0 };
+
+  function renderTally() {
+    const el = $("tally");
+    el.replaceChildren();
+    if (!tally.done && !tally.fail) return;
+    el.append(" · ");
+    if (tally.done) {
+      const s = document.createElement("span");
+      s.className = "tally-ok";
+      s.textContent = tally.done + " selesai";
+      el.append(s);
+    }
+    if (tally.done && tally.fail) el.append(" · ");
+    if (tally.fail) {
+      const s = document.createElement("span");
+      s.className = "tally-fail";
+      s.textContent = tally.fail + " gagal";
+      el.append(s);
+    }
+  }
+  function count(kind) {
+    if (tally.date !== todayKey()) tally = { date: todayKey(), done: 0, fail: 0 };
+    tally[kind]++;
+    store(TALLY_KEY, tally);
+    renderTally();
+  }
+
+  /* ---------- Tugas ---------- */
+  const chevron = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3"/></svg>';
+
+  function row(t) {
+    const li = document.createElement("li");
+    li.className = t.status === "working" ? "working" : "";
+    li.dataset.id = t.id;
+
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    const text = document.createElement("span");
+    text.className = "text";
+    text.textContent = t.text;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "menu-btn";
+    btn.setAttribute("aria-haspopup", "menu");
+    btn.setAttribute("aria-expanded", "false");
+    btn.innerHTML = "Aksi" + chevron;
+
+    li.append(dot, text, btn);
+    return li;
+  }
+
+  function menuFor(t) {
+    const m = document.createElement("div");
+    m.className = "menu";
+    m.setAttribute("role", "menu");
+    const items = [
+      t.status === "working" ? ["toggle", "Tunda"] : ["toggle", "Kerjakan"],
+      ["done", "Selesai"],
+      ["fail", "Gagal"],
+      null,
+      ["delete", "Hapus"],
+    ];
+    for (const it of items) {
+      if (!it) { m.append(document.createElement("hr")); continue; }
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "menuitem");
+      b.dataset.act = it[0];
+      const sw = document.createElement("span");
+      sw.className = "sw";
+      b.append(sw, it[1]);
+      m.append(b);
+    }
+    return m;
+  }
+
+  let openMenu = null;
+  function closeMenu(focusBack) {
+    if (!openMenu) return;
+    const btn = openMenu.parentElement.querySelector(".menu-btn");
+    btn.setAttribute("aria-expanded", "false");
+    openMenu.remove();
+    openMenu = null;
+    if (focusBack) btn.focus();
+  }
+
+  function render() {
+    closeMenu(false);
+    const working = tasks.filter((t) => t.status === "working");
+    const todo = tasks.filter((t) => t.status !== "working");
+    fill($("list-work"), working, "Belum ada. Pilih Kerjakan dari menu Aksi.");
+    fill($("list-todo"), todo, "Semua tugas sudah dimulai.");
+    $("count-work").textContent = working.length || "";
+    $("count-todo").textContent = todo.length || "";
+    $("sample-note").hidden = !isSample;
+  }
+  function fill(ul, items, emptyText) {
+    ul.replaceChildren(...items.map(row));
+    if (!items.length) {
+      const p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = emptyText;
+      ul.append(p);
+    }
+  }
+
+  function removeTask(li, id, cls) {
+    tasks = tasks.filter((x) => x.id !== id);
+    save();
+    closeMenu(false);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return render();
+    if (cls) li.classList.add(cls);
+    li.classList.add("leaving");
+    li.addEventListener("animationend", render, { once: true });
+  }
+
+  $("add-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = $("task-input");
+    const text = input.value.trim();
+    if (!text) return;
+    tasks.push({ id: Date.now(), text, status: "todo" });
+    input.value = "";
+    save();
+    render();
+  });
+
+  document.addEventListener("click", (e) => {
+    const menuBtn = e.target.closest(".menu-btn");
+    if (menuBtn) {
+      const li = menuBtn.closest("li");
+      const wasOpen = openMenu && openMenu.parentElement === li;
+      closeMenu(false);
+      if (wasOpen) return;
+      const t = tasks.find((x) => x.id === Number(li.dataset.id));
+      if (!t) return;
+      openMenu = menuFor(t);
+      li.append(openMenu);
+      menuBtn.setAttribute("aria-expanded", "true");
+      openMenu.querySelector("button").focus();
+      return;
+    }
+
+    const act = e.target.closest(".menu button[data-act]");
+    if (!act) { closeMenu(false); return; }
+
+    const li = act.closest("li");
+    const id = Number(li.dataset.id);
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return;
+    switch (act.dataset.act) {
+      case "toggle":
+        t.status = t.status === "working" ? "todo" : "working";
+        save();
+        render();
+        break;
+      case "done": count("done"); removeTask(li, id, "ok"); break;
+      case "fail": count("fail"); removeTask(li, id, "fail"); break;
+      case "delete": removeTask(li, id, ""); break;
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!openMenu) return;
+    if (e.key === "Escape") { closeMenu(true); return; }
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const items = [...openMenu.querySelectorAll("button")];
+      const i = items.indexOf(document.activeElement);
+      const next = e.key === "ArrowDown" ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+      items[next].focus();
+    }
+  });
+
+  render();
+  renderTally();
+
+  /* ---------- Pomodoro ---------- */
+  // Sisa waktu selalu dihitung dari jam (endAt), bukan dari jumlah tick, dan
+  // disimpan; jadi tetap benar walau tab ditidurkan browser atau halaman dimuat ulang.
+  const TIMER_KEY = "fokus-harian.timer";
+  const C = 2 * Math.PI * 44;
+  const bar = $("bar");
+  bar.style.strokeDasharray = C;
+
+  let minutes = 25;
+  let remaining = minutes * 60 * 1000;
+  let endAt = null;
+  let tick = null;
+  let audio = null;
+  let chime = null;     // { at, nodes }: bunyi yang sudah dijadwalkan di AudioContext
+  let wakeLock = null;
+
+  const full = () => minutes * 60 * 1000;
+  const saveTimer = () => store(TIMER_KEY, { minutes, endAt, remaining });
+  const fmt = (ms) => {
+    const s = Math.ceil(ms / 1000);
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  };
+
+  function draw(stateText) {
+    $("time").textContent = fmt(remaining);
+    bar.style.strokeDashoffset = C * (1 - remaining / full());
+    if (stateText) $("state").textContent = stateText;
+    document.title = endAt ? fmt(remaining) + " · Fokus Harian" : "Fokus Harian";
+  }
+
+  function setMode(m) {
+    minutes = m;
+    document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.min) === m)));
+  }
+
+  /* Suara */
+  function ensureAudio() {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      return audio.state === "running" ? Promise.resolve() : audio.resume();
+    } catch (e) { return Promise.reject(e); }
+  }
+  function cancelChime() {
+    if (!chime) return;
+    chime.nodes.forEach((o) => { try { o.stop(); } catch (e) {} });
+    chime = null;
+  }
+  // Bunyi dijadwalkan tepat di endAt. AudioContext tetap jalan saat tab di latar,
+  // jadi bunyinya keluar tepat waktu walau setInterval sedang diperlambat browser.
+  function scheduleChime(delaySec) {
+    cancelChime();
+    if (!audio) return;
+    const t0 = audio.currentTime + Math.max(0.05, delaySec);
+    const notes = [784, 988, 1175, 784, 988, 1175];
+    const nodes = notes.map((f, i) => {
+      const at = t0 + i * 0.22 + (i >= 3 ? 0.35 : 0);
+      const osc = audio.createOscillator();
+      const g = audio.createGain();
+      osc.type = "sine";
+      osc.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.3, at + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.5);
+      osc.connect(g).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + 0.55);
+      return osc;
+    });
+    chime = { at: t0, nodes };
+  }
+  const rescheduleChime = () => { if (endAt) scheduleChime((endAt - Date.now()) / 1000); };
+
+  /* Layar tetap menyala selama timer jalan (kalau browser mengizinkan) */
+  function lock() {
+    if (!navigator.wakeLock || wakeLock || document.visibilityState !== "visible") return;
+    navigator.wakeLock.request("screen").then((l) => {
+      wakeLock = l;
+      l.addEventListener("release", () => { wakeLock = null; });
+    }).catch(() => {});
+  }
+  function unlock() {
+    if (wakeLock) wakeLock.release().catch(() => {});
+    wakeLock = null;
+  }
+
+  /* Status timer */
+  function run() {
+    clearInterval(tick);
+    tick = setInterval(update, 250);
+    $("timer").classList.remove("done");
+    $("btn-start").textContent = "Jeda";
+    draw("Fokus");
+  }
+
+  function start() {
+    if (remaining <= 0) remaining = full();
+    endAt = Date.now() + remaining;
+    ensureAudio().then(rescheduleChime).catch(() => {});
+    lock();
+    saveTimer();
+    run();
+  }
+
+  function pause() {
+    clearInterval(tick);
+    remaining = Math.max(0, endAt - Date.now());
+    endAt = null;
+    cancelChime();
+    unlock();
+    saveTimer();
+    $("btn-start").textContent = "Lanjut";
+    draw("Dijeda");
+  }
+
+  function reset() {
+    clearInterval(tick);
+    endAt = null;
+    remaining = full();
+    cancelChime();
+    unlock();
+    saveTimer();
+    $("timer").classList.remove("done");
+    $("btn-start").textContent = "Mulai";
+    draw("Siap");
+  }
+
+  function finish() {
+    clearInterval(tick);
+    endAt = null;
+    remaining = 0;
+    unlock();
+    saveTimer();
+    $("timer").classList.add("done");
+    $("btn-start").textContent = "Mulai lagi";
+    draw("Waktu habis!");
+  }
+
+  function update() {
+    if (!endAt) return;
+    remaining = Math.max(0, endAt - Date.now());
+    if (remaining > 0) return draw();
+    // Bunyi terjadwal belum keluar (mis. HP ikut menidurkan suara): bunyikan sekarang.
+    if (chime && audio && audio.state === "running" && audio.currentTime < chime.at) scheduleChime(0);
+    chime = null;
+    finish();
+  }
+
+  // Begitu halaman terlihat lagi, langsung hitung ulang dari jam.
+  function resync() {
+    if (!endAt) return;
+    update();
+    if (!endAt) return;
+    if (audio) ensureAudio().then(rescheduleChime).catch(() => {});
+    lock();
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") resync(); });
+  window.addEventListener("pageshow", resync);
+  window.addEventListener("focus", resync);
+  // Setelah halaman dimuat ulang, suara baru bisa disiapkan lagi lewat sentuhan/klik.
+  document.addEventListener("pointerdown", () => {
+    if (endAt && (!audio || audio.state !== "running")) ensureAudio().then(rescheduleChime).catch(() => {});
+  });
+
+  $("btn-start").addEventListener("click", () => (endAt ? pause() : start()));
+  $("btn-reset").addEventListener("click", reset);
+  document.querySelectorAll(".seg button").forEach((b) => {
+    b.addEventListener("click", () => { setMode(Number(b.dataset.min)); reset(); });
+  });
+
+  // Pulihkan timer yang tersimpan.
+  const saved = load(TIMER_KEY);
+  if (saved && (saved.minutes === 25 || saved.minutes === 50)) {
+    setMode(saved.minutes);
+    if (saved.endAt) {
+      endAt = saved.endAt;
+      remaining = Math.max(0, endAt - Date.now());
+      if (remaining > 0) { lock(); run(); } else finish();
+    } else {
+      remaining = typeof saved.remaining === "number" ? Math.min(saved.remaining, full()) : full();
+      if (remaining <= 0) finish();
+      else if (remaining < full()) { $("btn-start").textContent = "Lanjut"; draw("Dijeda"); }
+      else draw("Siap");
+    }
+  } else {
+    draw("Siap");
+  }
+})();
+</script>
+</body>
+</html>
