@@ -1,0 +1,55 @@
+{
+  "name": "fokus-harian-desktop",
+  "version": "1.0.0",
+  "description": "Fokus Harian: daftar tugas dan timer pomodoro sebagai aplikasi desktop",
+  "main": "main.js",
+  "private": true,
+  "author": "Fokus Harian",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "id.fokusharian.desktop",
+    "productName": "Fokus Harian",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../fokus-harian",
+        "to": "web/fokus-harian"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "publish": null
+  },
+  "homepage": "https://github.com/dias123ve/scoreboard-connect"
+}
