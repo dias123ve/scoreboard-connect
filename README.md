@@ -10,11 +10,19 @@ browser pemakai.
 |---|---|---|
 | Fokus Harian | `fokus-harian/` | Daftar tugas (kerjakan, tunda, selesai, gagal, hapus) dan timer pomodoro 25/50 menit dengan bunyi saat selesai |
 
+## Aplikasi desktop
+
+`desktop/` membungkus Fokus Harian jadi aplikasi desktop (Windows, macOS, Linux) dengan
+timer yang tidak dicekik browser dan notifikasi saat waktu habis. Lihat
+[`desktop/README.md`](desktop/README.md).
+
 ## Struktur
 
 ```
 index.html              halaman depan, daftar semua alat
 fokus-harian/index.html
+desktop/                aplikasi desktop (Electron) untuk Fokus Harian
+.github/workflows/      build installer desktop
 ```
 
 ## Menambah alat baru

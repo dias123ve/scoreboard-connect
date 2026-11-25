@@ -512,7 +512,13 @@
   let wakeLock = null;
 
   const full = () => minutes * 60 * 1000;
-  const saveTimer = () => store(TIMER_KEY, { minutes, endAt, remaining });
+  // Di aplikasi desktop (desktop/), proses utama ikut menjaga jam dan memunculkan notifikasi.
+  const desktop = window.desktop || null;
+  if (desktop) document.querySelector(".back").hidden = true;
+  const saveTimer = () => {
+    store(TIMER_KEY, { minutes, endAt, remaining });
+    if (desktop) desktop.setTimer(endAt, minutes);
+  };
   const fmt = (ms) => {
     const s = Math.ceil(ms / 1000);
     return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
@@ -627,6 +633,7 @@
     remaining = 0;
     unlock();
     saveTimer();
+    if (desktop) desktop.timerDone(minutes);
     $("timer").classList.add("done");
     $("btn-start").textContent = "Mulai lagi";
     draw("Waktu habis!");
@@ -671,7 +678,7 @@
     if (saved.endAt) {
       endAt = saved.endAt;
       remaining = Math.max(0, endAt - Date.now());
-      if (remaining > 0) { lock(); run(); } else finish();
+      if (remaining > 0) { lock(); saveTimer(); run(); } else finish();
     } else {
       remaining = typeof saved.remaining === "number" ? Math.min(saved.remaining, full()) : full();
       if (remaining <= 0) finish();
